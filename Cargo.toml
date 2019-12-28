@@ -1,0 +1,16 @@
+[package]
+name = "pnp"
+version = "0.1.0"
+authors = ["Geordon Worley <vadixidav@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+cv = { package = "cv-core", version = "0.1.2" }
+
+[dev-dependencies]
+arrsac = "0.2.0"
+p3p = { git = "https://github.com/rust-photogrammetry/p3p.git", rev = "consensus" }
+approx = "0.3"
+rand = { version = "0.7.2", features = ["small_rng"] }
+arraymap = "0.1.1"
+
