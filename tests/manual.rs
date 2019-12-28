@@ -8,7 +8,7 @@ use pnp::pnp;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 const EPSILON_APPROX: f32 = 1e-2;
-const NOISE_LEVEL: f32 = 1e-3;
+const NOISE_LEVEL: f32 = 1e-4;
 const NOISY_ITERATIONS: usize = 256;
 
 #[test]
@@ -35,6 +35,8 @@ fn manual_test_mutator(mut mutator: impl FnMut(Point2<f32>) -> Point2<f32>) {
         [0.418_75, -0.581_25, 2.0],
         [1.128_125, 0.878_125, 3.0],
         [-0.528_125, 0.178_125, 2.5],
+        [0.514_125, -0.748_125, 1.2],
+        [0.114_125, -0.247_125, 3.7],
     ]
     .map(|&p| Point3::from(p));
 
