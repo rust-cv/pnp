@@ -1,16 +1,34 @@
 use approx::*;
 use arraymap::ArrayMap;
 use arrsac::{Arrsac, Config};
-use cv::nalgebra::{Isometry3, Point3, Translation, UnitQuaternion, Vector3};
+use cv::nalgebra::{Isometry3, Point2, Point3, Translation, UnitQuaternion, Vector3};
 use cv::KeypointWorldMatch;
 use p3p::nordberg::NordbergEstimator;
 use pnp::pnp;
-use rand::{rngs::SmallRng, SeedableRng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 const EPSILON_APPROX: f32 = 1e-2;
+const NOISE_LEVEL: f32 = 1e-3;
+const NOISY_ITERATIONS: usize = 256;
 
 #[test]
-fn manual() {
+fn noiseless() {
+    manual_test_mutator(|p| p);
+}
+
+#[test]
+fn noisy() {
+    let mut rng = SmallRng::from_seed([0; 16]);
+    for _ in 0..NOISY_ITERATIONS {
+        manual_test_mutator(|p| {
+            p.coords
+                .map(|n| n + NOISE_LEVEL * (rng.gen::<f32>() - 0.5))
+                .into()
+        });
+    }
+}
+
+fn manual_test_mutator(mut mutator: impl FnMut(Point2<f32>) -> Point2<f32>) {
     // Define some points in camera coordinates (with z > 0).
     let camera_depth_points = [
         [-0.228_125, -0.061_458_334, 1.0],
@@ -29,7 +47,12 @@ fn manual() {
     let world_points = camera_depth_points.map(|p| pose.inverse() * p);
 
     // Compute normalized image coordinates.
-    let normalized_image_coordinates = camera_depth_points.map(|p| (p / p.z).xy());
+    let mut normalized_image_coordinates = camera_depth_points.map(|p| (p / p.z).xy());
+
+    // Mutate image coordinates
+    for coord in &mut normalized_image_coordinates {
+        *coord = mutator(*coord);
+    }
 
     let samples: Vec<KeypointWorldMatch> = world_points
         .iter()
