@@ -2,7 +2,7 @@ use approx::*;
 use arraymap::ArrayMap;
 use arrsac::{Arrsac, Config};
 use cv::nalgebra::{Isometry3, Point2, Point3, Translation, UnitQuaternion, Vector3};
-use cv::KeypointWorldMatch;
+use cv::{KeyPointWorldMatch, WorldPoint};
 use p3p::nordberg::NordbergEstimator;
 use pnp::pnp;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
@@ -37,6 +37,7 @@ fn manual_test_mutator(mut mutator: impl FnMut(Point2<f32>) -> Point2<f32>) {
         [-0.528_125, 0.178_125, 2.5],
         [0.514_125, -0.748_125, 1.2],
         [0.114_125, -0.247_125, 3.7],
+        [0.914_125, -0.254_125, 2.7],
     ]
     .map(|&p| Point3::from(p));
 
@@ -49,20 +50,23 @@ fn manual_test_mutator(mut mutator: impl FnMut(Point2<f32>) -> Point2<f32>) {
     let world_points = camera_depth_points.map(|p| pose.inverse() * p);
 
     // Compute normalized image coordinates.
-    let mut normalized_image_coordinates = camera_depth_points.map(|p| (p / p.z).xy());
+    let normalized_image_coordinates = camera_depth_points.map(|p| (p / p.z).xy());
+    let mut mutated_normalized_image_coordinates = normalized_image_coordinates.clone();
 
     // Mutate image coordinates
-    for coord in &mut normalized_image_coordinates {
+    for coord in &mut mutated_normalized_image_coordinates {
         *coord = mutator(*coord);
     }
 
-    let samples: Vec<KeypointWorldMatch> = world_points
+    let samples: Vec<KeyPointWorldMatch> = world_points
         .iter()
-        .zip(&normalized_image_coordinates)
-        .map(|(&world, &image)| KeypointWorldMatch(image.into(), world.into()))
+        .zip(&mutated_normalized_image_coordinates)
+        .map(|(&world, &image)| KeyPointWorldMatch(image.into(), world.into()))
         .collect();
 
     let pose = pnp(
+        500,
+        0.1,
         NordbergEstimator,
         Arrsac::new(Config::new(0.01), SmallRng::from_seed([0; 16])),
         samples.iter().copied(),
@@ -70,6 +74,11 @@ fn manual_test_mutator(mut mutator: impl FnMut(Point2<f32>) -> Point2<f32>) {
     .unwrap();
 
     // Compare the pose to ground truth.
-    assert_relative_eq!(rot, pose.rotation, epsilon = EPSILON_APPROX);
-    assert_relative_eq!(trans, pose.translation, epsilon = EPSILON_APPROX);
+    for (ocoord, ecoord) in normalized_image_coordinates
+        .iter()
+        .cloned()
+        .zip(world_points.iter().map(|wp| pose.project(WorldPoint(*wp))))
+    {
+        assert_relative_eq!(ocoord, ecoord, epsilon = EPSILON_APPROX);
+    }
 }
